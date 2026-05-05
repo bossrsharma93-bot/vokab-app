@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login First Test</title>
+    <style>
+        body { font-family: Arial; background: #0f172a; color: white; padding: 20px; }
+        .card { background: #1e293b; padding: 20px; border-radius: 10px; margin: 10px 0; }
+        button { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        input { padding: 10px; margin: 5px; border-radius: 5px; border: none; }
+        .success { color: #22c55e; }
+        .error { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Pehle Login Karo</h1>
+    
+    <div class="card">
+        <h3>Login</h3>
+        <input type="email" id="email" placeholder="Email" value="test@test.com">
+        <input type="password" id="password" placeholder="Password" value="Test@123">
+        <button onclick="doLogin()">Login</button>
+        <button onclick="doRegister()">Register</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="card" id="testSection" style="display:none">
+        <h3>🧪 Translation Test</h3>
+        <input type="text" id="testText" placeholder="Text to translate" value="नमस्ते">
+        <button onclick="testTranslation()">Test Translation</button>
+        <div id="translationResult"></div>
+    </div>
+
+    <script>
+        async function doRegister() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, name: email.split('@')[0] })
+            });
+            const data = await res.json();
+            document.getElementById('loginResult').innerHTML = `<span class="success">✅ Register: ${JSON.stringify(data)}</span>`;
+        }
+        
+        async function doLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            
+            if (data.accessToken) {
+                localStorage.setItem('accessToken', data.accessToken);
+                document.getElementById('loginResult').innerHTML = '<span class="success">✅ Login Successful! Token saved.</span>';
+                document.getElementById('testSection').style.display = 'block';
+            } else {
+                document.getElementById('loginResult').innerHTML = `<span class="error">❌ Login Failed: ${data.error}</span>`;
+            }
+        }
+        
+        async function testTranslation() {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                document.getElementById('translationResult').innerHTML = '<span class="error">❌ Please login first!</span>';
+                return;
+            }
+            
+            const text = document.getElementById('testText').value;
+            
+            const res = await fetch('/api/translate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ text, sourceLang: 'hi', targetLang: 'en' })
+            });
+            const data = await res.json();
+            
+            if (data.translated) {
+                document.getElementById('translationResult').innerHTML = `<span class="success">✅ Translation: ${data.translated}</span>`;
+            } else {
+                document.getElementById('translationResult').innerHTML = `<span class="error">❌ Error: ${data.error}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

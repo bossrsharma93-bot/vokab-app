@@ -1,0 +1,16 @@
+{
+  "users": [
+    {
+      "id": "cc42a283-1856-4e87-ad5c-00562f398448",
+      "email": "boss.rsharma93@gmail.com",
+      "password": "YWRtaW4xMjM=",
+      "name": "rohit",
+      "plan": "free",
+      "createdAt": 1776797487353,
+      "apiCalls": 0
+    }
+  ],
+  "calls": [],
+  "payments": [],
+  "subscriptions": []
+}

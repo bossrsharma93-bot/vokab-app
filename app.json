@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "LangBridge Pro",
+    "slug": "langbridge-pro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.langbridge.pro",
+      "infoPlist": {
+        "NSCameraUsageDescription": "LangBridge needs camera access for video calls",
+        "NSMicrophoneUsageDescription": "LangBridge needs microphone access for voice translation"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f172a"
+      },
+      "package": "com.langbridge.pro",
+      "permissions": ["CAMERA", "RECORD_AUDIO", "INTERNET"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "tsconfigPaths": false
+    }
+  }
+}

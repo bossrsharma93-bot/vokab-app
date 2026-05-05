@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LangBridge - Login</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a, #1e1b4b);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial;
+            margin: 0;
+        }
+        .box {
+            background: #1e293b;
+            padding: 40px;
+            border-radius: 20px;
+            width: 350px;
+            text-align: center;
+            border: 1px solid #8b5cf6;
+        }
+        h2 { color: white; margin-bottom: 30px; }
+        input {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: none;
+            background: #0f172a;
+            color: white;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 15px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .success { background: #22c55e20; color: #22c55e; border: 1px solid #22c55e; }
+        .error { background: #ef444420; color: #ef4444; border: 1px solid #ef4444; }
+        .switch {
+            margin-top: 20px;
+            color: #94a3b8;
+            cursor: pointer;
+        }
+        .switch span { color: #8b5cf6; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>🔐 LangBridge</h2>
+        <input type="email" id="email" placeholder="Email" autocomplete="off">
+        <input type="password" id="password" placeholder="Password">
+        <button id="actionBtn">Login</button>
+        <div class="switch" id="switchBtn">Don't have an account? <span>Sign Up</span></div>
+        <div id="msg" class="message" style="display:none"></div>
+    </div>
+
+    <script>
+        let isLogin = true;
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const actionBtn = document.getElementById('actionBtn');
+        const switchBtn = document.getElementById('switchBtn');
+        const msgDiv = document.getElementById('msg');
+        
+        switchBtn.onclick = () => {
+            isLogin = !isLogin;
+            if (isLogin) {
+                actionBtn.innerText = 'Login';
+                switchBtn.innerHTML = `Don't have an account? <span>Sign Up</span>`;
+            } else {
+                actionBtn.innerText = 'Sign Up';
+                switchBtn.innerHTML = `Already have an account? <span>Login</span>`;
+            }
+            msgDiv.style.display = 'none';
+        };
+        
+        actionBtn.onclick = async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            
+            if (!email || !password) {
+                showMessage('Please enter email and password', 'error');
+                return;
+            }
+            
+            const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+            const body = isLogin ? { email, password } : { email, password, name: email.split('@')[0] };
+            
+            actionBtn.disabled = true;
+            actionBtn.innerText = isLogin ? 'Logging in...' : 'Signing up...';
+            
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                const data = await res.json();
+                console.log('Response:', data);
+                
+                if (res.ok && data.accessToken) {
+                    localStorage.setItem('accessToken', data.accessToken);
+                    localStorage.setItem('refreshToken', data.refreshToken);
+                    showMessage('✅ Login Successful! Redirecting...', 'success');
+                    setTimeout(() => {
+                        // 🔥 FIXED: Redirect to index.html (full features)
+                        window.location.href = '/index.html';
+                    }, 1000);
+                } else {
+                    showMessage('❌ ' + (data.error || 'Failed'), 'error');
+                }
+            } catch(e) {
+                showMessage('❌ Connection error: ' + e.message, 'error');
+            } finally {
+                actionBtn.disabled = false;
+                actionBtn.innerText = isLogin ? 'Login' : 'Sign Up';
+            }
+        };
+        
+        function showMessage(text, type) {
+            msgDiv.innerText = text;
+            msgDiv.className = `message ${type}`;
+            msgDiv.style.display = 'block';
+            setTimeout(() => {
+                msgDiv.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
