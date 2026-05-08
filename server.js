@@ -40,7 +40,7 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-// ========== RATE LIMITING (BALANCED) ==========
+// ========== RATE LIMITING ==========
 const globalLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 120,
@@ -87,7 +87,12 @@ let db;
 let client;
 
 async function connectMongoDB() {
-    const mongoUrl = process.env.MONGODB_URL || 'mongodb://127.0.0.1:27017/vokab';
+    // FIXED: Use MONGO_URI (matches Railway/Render env variable)
+    const mongoUrl = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/vokab';
+    console.log("🔍 MONGO_URI from env:", mongoUrl ? "✅ Found" : "❌ NOT FOUND");
+    if (!mongoUrl || mongoUrl === 'mongodb://127.0.0.1:27017/vokab') {
+        console.warn("⚠️ Using fallback localhost database. Set MONGO_URI for production.");
+    }
     client = new MongoClient(mongoUrl);
     await client.connect();
     db = client.db('vokab');
@@ -138,7 +143,7 @@ async function verifyAccessToken(req, res, next) {
     }
 }
 
-// ========== WORD MAPPING (EXACT MATCH ONLY - NO PARTIAL) ==========
+// ========== WORD MAPPING ==========
 const wordMapping = {
     'नमस्ते': 'Hello', 'हेलो': 'Hello', 'नमस्कार': 'Hello',
     'कैसे हो': 'How are you?', 'क्या हाल है': 'How are you?',
@@ -180,7 +185,7 @@ function setCachedTranslation(text, targetLang, translation) {
     }
 }
 
-// ========== PARALLEL QUEUE (5 concurrent) with WebSocket Heartbeat ==========
+// ========== PARALLEL QUEUE ==========
 const translationQueue = [];
 let activeTranslations = 0;
 const MAX_CONCURRENT = 5;
@@ -203,7 +208,6 @@ async function processTranslationQueue() {
 }
 
 function queueTranslation(text, targetLang, sourceLang, userId) {
-    // Skip queue for short texts (under 20 chars) - process immediately
     if (text.length < 20) {
         return realAITranslate(text, targetLang, sourceLang, userId);
     }
@@ -214,7 +218,7 @@ function queueTranslation(text, targetLang, sourceLang, userId) {
     });
 }
 
-// ========== USAGE TRACKING (Minimal) ==========
+// ========== USAGE TRACKING ==========
 async function trackUsage(userId, text, translated, targetLang, duration, success = true) {
     if (!db) return;
     try {
@@ -249,14 +253,12 @@ async function realAITranslate(text, targetLang, sourceLang = 'auto', userId = n
     const originalText = text.trim();
     const wordCount = originalText.split(/\s+/).length;
     
-    // 1. Check cache
     const cached = getCachedTranslation(originalText, targetLang);
     if (cached) {
         if (userId) await trackUsage(userId, text, cached, targetLang, Date.now() - startTime, true);
         return cached;
     }
     
-    // 2. Exact match for short phrases (1-4 words)
     if (wordCount <= 4) {
         const lowerText = originalText.toLowerCase();
         if (wordMapping[lowerText]) {
@@ -271,7 +273,6 @@ async function realAITranslate(text, targetLang, sourceLang = 'auto', userId = n
         }
     }
     
-    // 3. TRY GROQ AI WITH RETRY (2 attempts)
     let lastError = null;
     
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -321,7 +322,6 @@ async function realAITranslate(text, targetLang, sourceLang = 'auto', userId = n
         }
     }
     
-    // 4. Fallback: LibreTranslate
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -348,7 +348,6 @@ async function realAITranslate(text, targetLang, sourceLang = 'auto', userId = n
         }
     } catch(e) {}
     
-    // 5. Last resort - Meaningful message
     if (userId) await trackUsage(userId, text, '[Translation in progress]', targetLang, Date.now() - startTime, false);
     return `[Translation in progress...]`;
 }
@@ -463,7 +462,6 @@ app.get('/api/user/profile', verifyAccessToken, async (req, res) => {
     }
 });
 
-// ========== ADMIN STATS ==========
 app.get('/api/admin/stats', verifyAccessToken, async (req, res) => {
     try {
         const user = await db.collection('users').findOne({ id: req.user.userId });
@@ -489,7 +487,6 @@ app.get('/api/admin/stats', verifyAccessToken, async (req, res) => {
     }
 });
 
-// ========== TRANSLATION API ==========
 app.post('/api/translate', verifyAccessToken, async (req, res) => {
     const { text, targetLang, sourceLang = 'auto' } = req.body;
     
@@ -519,7 +516,6 @@ app.post('/api/translate', verifyAccessToken, async (req, res) => {
     }
 });
 
-// ========== HEALTH CHECK ==========
 app.get('/health', async (req, res) => {
     let dbStatus = 'unknown';
     try {
@@ -542,7 +538,7 @@ app.get('/health', async (req, res) => {
     });
 });
 
-// ========== WEBRTC SIGNALING WITH HEARTBEAT ==========
+// ========== WEBRTC SIGNALING ==========
 const rooms = new Map();
 
 io.on('connection', (socket) => {
@@ -550,7 +546,6 @@ io.on('connection', (socket) => {
     let currentRoom = null;
     let heartbeatInterval = null;
     
-    // WebSocket heartbeat (prevents disconnect)
     heartbeatInterval = setInterval(() => {
         if (socket.connected) {
             socket.emit('ping', Date.now());
@@ -641,7 +636,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Room cleanup
 setInterval(() => {
     for (const [roomId, users] of rooms.entries()) {
         if (users.size === 0) rooms.delete(roomId);
@@ -689,7 +683,8 @@ async function startServer() {
         console.log(`📊 Admin Stats: ENABLED (admin@vokab.com)`);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
         
-        server.listen(PORT, () => {
+        // FIXED: Added '0.0.0.0' for Render/Railway compatibility
+        server.listen(PORT, '0.0.0.0', () => {
             console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
 ║              🔥 VOKAB AI PRO - FINAL PRODUCTION 🔥               ║
